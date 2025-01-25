@@ -1,71 +1,69 @@
 import styles from './userPage.module.scss'
-import Sidebar from "../../components/sidebar/Sidebar.jsx";
 import useFetch from "../../hooks/useFetch.jsx";
 import { useEffect, useState } from "react";
 import user_main_data from "../../mock/user_main_data.js";
 import user_activity from "../../mock/user_activity.js";
 import user_performance from "../../mock/user_performance.js";
 import user_average_sessions from "../../mock/user_average_sessions.js";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import ActivityChart from "../../components/activityChart/ActivityChart.jsx";
 import SessionChart from "../../components/sessionChart/SessionChart.jsx";
 import PerformanceChart from "../../components/performanceChart/PerformanceChart.jsx";
 import ScoreChart from "../../components/scoreChart/ScoreChart.jsx";
 import CardChart from "../../components/cardChart/CardChart.jsx";
+import setUser from "../../models/user.js";
 
-const UserPage = ({user}) => {
+const UserPage = () => {
   const {userId} = useParams();
+  const [formattedUserData, setFormattedUserData] = useState([]);
 
-  // const { userId } = useParams();
-  // const { title, description, equipments, host, location, pictures, rating, tags } = user
-  // const [url, setUrl] = useState('');
-
-  // const { data: users, isPending, error } = useFetch(url);
-  // get params from url
-  const [userMainData, setUserMainData] = useState(null)
-  const [userActivity, setUserActivity] = useState(null)
-  const [userPerformance, setUserPerformance] = useState(null)
-  const [userAverageSessions, setUserAverageSessions] = useState(null)
+  const baseUrl = `http://localhost:3000/user/${userId}`;
+  const urls = [baseUrl, baseUrl + '/activity', baseUrl + '/performance', baseUrl + '/average-sessions'];
+  const {data: fetchedUserData, isPending, error} = useFetch(userId, ...urls);
 
 
   useEffect(() => {
-
     if (userId === 'mock') {
-      setUserActivity(user_activity[0])
-      setUserMainData(user_main_data[0])
-      setUserAverageSessions(user_average_sessions[0])
-      setUserPerformance(user_performance[0])
+      setFormattedUserData(setUser(user_main_data[0], user_activity[0], user_performance[0], user_average_sessions[0]))
+    } else if (fetchedUserData) {
+      setFormattedUserData(setUser(fetchedUserData[0].data, fetchedUserData[1].data, fetchedUserData[2].data, fetchedUserData[3].data))
     }
-  }, [userId])
+  }, [fetchedUserData, userId])
 
   return (
-      <div className={styles.user}>
-        <main>
-          <div className={styles.intro}>
-            <h1 className={styles.title}>Bonjour <span
-                className={styles.userName}>{userMainData?.userInfos?.firstName}</span></h1>
-            <p>Félicitation ! Vous avez explosé vos objectifs hier 👏</p>
-          </div>
+      <>
+        {isPending && <div>Chargement...</div>}
+        {error && <Navigate to={'/error'} replace={true} state={{error: error}} />}
+        {Object.keys(formattedUserData).length > 0 && (
+            <div className={styles.user}>
+              <main>
+                <div className={styles.intro}>
+                  <h1 className={styles.title}>Bonjour <span
+                      className={styles.userName}>{formattedUserData.userInfos?.firstName}</span></h1>
+                  <p>Félicitation ! Vous avez explosé vos objectifs hier 👏</p>
+                </div>
 
-
-          <div className={styles.dashboard__container}>
-            <div className={styles.dashboard__left}>
-              {userActivity && <ActivityChart userActivity={userActivity} />}
-              <div className={styles.chart__bottom}>
-                {userAverageSessions && <SessionChart averageSession={userAverageSessions} />}
-                {userPerformance && <PerformanceChart performance={userPerformance} />}
-                {userMainData && <ScoreChart averageSession={userMainData} />}
-              </div>
+                <div className={styles.dashboard__container}>
+                  <div className={styles.dashboard__left}>
+                    {formattedUserData.sessions && <ActivityChart userActivity={formattedUserData.sessions} />}
+                    <div className={styles.chart__bottom}>
+                      {formattedUserData.averageSessions &&
+                          <SessionChart averageSession={formattedUserData.averageSessions} />}
+                      {formattedUserData.performance &&
+                          <PerformanceChart performance={formattedUserData.performance} />}
+                      {formattedUserData.score && <ScoreChart score={formattedUserData.score} />}
+                    </div>
+                  </div>
+                  <div className={styles.dashboard__right}>
+                    {formattedUserData.keyData && Object.entries(formattedUserData.keyData).map((data, index) => {
+                      return <CardChart key={index} data={data} />
+                    })}
+                  </div>
+                </div>
+              </main>
             </div>
-            <div className={styles.dashboard__right}>
-              {userMainData?.keyData && Object.entries(userMainData.keyData).map((data, index) => {
-                return <CardChart key={index} data={data} />
-              })}
-            </div>
-          </div>
-
-        </main>
-      </div>
+        )}
+      </>
   )
 }
 
